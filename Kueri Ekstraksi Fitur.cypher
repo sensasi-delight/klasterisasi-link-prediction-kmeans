@@ -33,6 +33,41 @@ CREATE (a)-[r:DI_DAPIL]->(b);
 
 
 // 4. Ekstraksi Fitur dan Ekspor Menjadi Berkas CSV
+CALL gds.labelPropagation.write({
+  nodeProjection: ['Caleg', 'Partai', 'Dapil'],
+  relationshipProjection: {
+    ANGGOTA: {
+      type: 'ANGGOTA',
+      orientation: 'UNDIRECTED'
+    }, 
+
+    DI_DAPIL: {
+      type: 'DI_DAPIL',
+      orientation: 'UNDIRECTED'
+    }
+  },
+  writeProperty: "labelPropagation"
+});
+
+CALL gds.louvain.stream({
+  nodeProjection: ['Caleg', 'Partai', 'Dapil'],
+  relationshipProjection: {
+    ANGGOTA: {
+      type: 'ANGGOTA',
+      orientation: 'UNDIRECTED'
+    }, 
+
+    DI_DAPIL: {
+      type: 'DI_DAPIL',
+      orientation: 'UNDIRECTED'
+    }
+  },
+  includeIntermediateCommunities: true
+})
+YIELD nodeId, communityId, intermediateCommunityIds
+WITH gds.util.asNode(nodeId) AS node, intermediateCommunityIds[0] AS smallestCommunity
+SET node.louvain = smallestCommunity;
+
 WITH "
   MATCH
     (c1:Caleg),
@@ -44,8 +79,8 @@ WITH "
     gds.alpha.linkprediction.commonNeighbors(c1, c2) as cn,
     gds.alpha.linkprediction.preferentialAttachment(c1, c2) as pa,
     gds.alpha.linkprediction.totalNeighbors(c1, c2) as tn,
-    gds.alpha.linkprediction.sameCommunity(c1, c2, \"labelPropogation\") AS sp,
-    gds.alpha.linkprediction.sameCommunity(c1, c2, \"louvain\") AS sl
+    gds.alpha.linkprediction.sameCommunity(c1, c2, 'labelPropagation') AS sp,
+    gds.alpha.linkprediction.sameCommunity(c1, c2, 'louvain') AS sl
 " as query
 CALL apoc.export.csv.query(query, "d3 - Dataset Hasil Ekstraksi Fitur.csv", {})
 YIELD file
